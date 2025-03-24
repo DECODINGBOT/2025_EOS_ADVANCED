@@ -1,5 +1,9 @@
+import 'package:eos_advance_login/screens/home_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:eos_advance_login/theme/res/palette.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:eos_advance_login/theme/light_theme.dart';
 import 'package:eos_advance_login/theme/foundation/app_theme.dart';
@@ -108,17 +112,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                       ),
+                      Material(
+                        elevation: 0,
+                        color: theme.color.surface,
+                        child: _buildSocialLoginSection(),
+                      ),
                     ],
                   ),
                 ),
               ),
 
               // 2. 소셜 로그인 영역 - 고정 위치에 배치
+              /*
               Material(
                 elevation: 0,
                 color: theme.color.surface,
                 child: _buildSocialLoginSection(),
               ),
+              */
             ],
           ),
         ),
@@ -240,6 +251,8 @@ class _LoginScreenState extends State<LoginScreen> {
              *    - 요청 성공/실패에 따른 피드백 제공
              *    - 오류 처리 (사용자가 존재하지 않을 경우 등)
              */
+
+            showPasswordResetDialog(context);
           },
           child: Text(
             '비밀번호 재설정',
@@ -281,6 +294,8 @@ class _LoginScreenState extends State<LoginScreen> {
              *      > invalid-email: 유효하지 않은 이메일 형식
              *    - 성공 시 자동 로그인 처리
              */
+
+            _handleSignUp(context);
           },
           child: Text(
             '회원가입',
@@ -293,6 +308,216 @@ class _LoginScreenState extends State<LoginScreen> {
       ],
     );
   }
+
+  bool _isValidEmail(String email) {
+    return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  void showPasswordResetDialog(BuildContext context){
+    showDialog(
+      context: context,
+      builder: (BuildContext context){
+        return AlertDialog(
+          title: const Text('비밀번호 재설정'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: '이메일을 입력하세요',
+                  hintText: '이메일 주소',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async{
+                String email = _emailController.text.trim();
+                bool isValidEmail = _isValidEmail(email);
+                if (!isValidEmail) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('유효한 이메일 형식이 아닙니다.')),
+                  );
+                  return;
+                }
+
+                try {
+                  await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('비밀번호 재설정 이메일을 전송했습니다.')),
+                  );
+                } catch (e) {
+                  String errorMessage = '알 수 없는 오류가 발생했습니다.';
+                  if (e is FirebaseAuthException) {
+                    if (e.code == 'user-not-found') {
+                      errorMessage = '등록되지 않은 이메일입니다.';
+                    }
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(errorMessage)),
+                  );
+                }
+              },
+              child: const Text('확인'),
+            ),
+          ],
+        );
+      }
+    );
+  }
+
+  void _handleSignUp(BuildContext context) async{
+    
+    TextEditingController confirmPasswordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context){
+        return AlertDialog(
+          title: const Text('회원가입'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: '이메일을 입력하세요',
+                  hintText: '이메일 주소',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+              ),
+              TextField(
+                controller: _passwordController,
+                keyboardType: TextInputType.visiblePassword,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: '비밀번호를 입력하세요',
+                  hintText: '비밀번호',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+              ),
+              TextField(
+                controller: confirmPasswordController,
+                keyboardType: TextInputType.visiblePassword,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: '비밀번호를 다시 입력하세요',
+                  hintText: '비밀번호 재입력',
+                  prefixIcon: Icon(Icons.lock_outline),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () async{
+                String email = _emailController.text.trim();
+                String password = _passwordController.text.trim();
+                String confirmPassword = confirmPasswordController.text.trim();
+                bool isValidEmail = _isValidEmail(email);
+                if (!isValidEmail) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('유효한 이메일 형식이 아닙니다.')),
+                  );
+                  return;
+                }
+
+                // 1. 입력값 유효성 검사
+                if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('모든 입력란을 채워주세요.')),
+                  );
+                  return;
+                }
+
+                if (!_isValidEmail(email)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('유효한 이메일 형식이 아닙니다.')),
+                  );
+                  return;
+                }
+
+                if (password.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('비밀번호는 6자 이상이어야 합니다.')),
+                  );
+                  return;
+                }
+
+                if (password != confirmPassword) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('비밀번호가 일치하지 않습니다.')),
+                  );
+                  return;
+                }
+
+                // 2. Firebase 회원가입 요청
+                try {
+                  await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                    email: email,
+                    password: password,
+                    );
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('회원가입 성공! 자동으로 로그인됩니다.')),
+                  );
+
+                // 회원가입 후 자동 로그인 처리
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                );
+                } catch (e) {
+                  String errorMessage = '회원가입에 실패했습니다.';
+                  if (e is FirebaseAuthException) {
+                    switch (e.code) {
+                    case 'email-already-in-use':
+                      errorMessage = '이미 사용 중인 이메일입니다.';
+                      break;
+                    case 'weak-password':
+                      errorMessage = '비밀번호가 너무 취약합니다.';
+                      break;
+                    case 'invalid-email':
+                      errorMessage = '유효하지 않은 이메일 형식입니다.';
+                      break;
+                    }
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(errorMessage)),
+                  );
+                }
+              },
+              child: const Text('확인'),
+            ),
+          ],
+        );
+
+      }
+    );
+  }
+
+
+
+
 
   /// 소셜 로그인 섹션
   /// - 간편 로그인 옵션들을 포함하는 하단 고정 영역입니다.
@@ -401,7 +626,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   /// 이메일 로그인 처리 메서드
-  void _handleEmailLogin(BuildContext context) {
+  void _handleEmailLogin(BuildContext context) async {
     // TODO: [과제 2-1] Firebase Auth를 사용한 이메일 로그인 구현
     /*
      * 이메일/비밀번호 로그인 구현 과제
@@ -420,14 +645,71 @@ class _LoginScreenState extends State<LoginScreen> {
      *      > invalid-email: 유효하지 않은 이메일 형식
      *      > user-disabled: 비활성화된 계정
      *    - 오류 메시지를 SnackBar로 사용자에게 표시
-     */
+     */ 
 
     // 입력값 검증 (현재 코드는 유지)
+
+    String email = _emailController.text.trim();
+    String password = _passwordController.text.trim();
+
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('이메일과 비밀번호를 모두 입력해주세요.')),
       );
       return;
+    }
+
+    bool isValidEmail = _isValidEmail(email);
+    if(!isValidEmail){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('유효한 이메일 형식이 아닙니다.')),
+      );
+      return;
+    }
+
+    if(password.length < 6){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('비밀번호는 6자 이상이어야 합니다.')),
+      );
+      return;
+    }
+
+    try{
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password
+      );
+      /*
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+      */
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인 성공!')),
+      );
+    } catch (e){
+      late String errorMessage;
+      if(e is FirebaseAuthException){
+        switch (e.code){
+          case 'user-not-found':
+            errorMessage = '등록되지 않은 이메일입니다.';
+            break;
+          case 'wrong-password':
+            errorMessage = '잘못된 비밀번호입니다.';
+            break;
+          case 'invalid-email':
+            errorMessage = '유효하지 않은 이메일 형식입니다.';
+            break;
+          case 'user-disabled':
+            errorMessage = '해당 계정은 비활성화되었습니다.';
+            break;
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     }
 
     // 테스트용 로그인 메시지 (실제 구현 시 제거)
