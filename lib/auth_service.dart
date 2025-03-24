@@ -1,3 +1,4 @@
+import 'package:eos_advance_login/theme/foundation/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,7 @@ class AuthService extends ChangeNotifier {
   }) async {
     // 회원가입
 
-    
+
   }
 
   void signIn({
