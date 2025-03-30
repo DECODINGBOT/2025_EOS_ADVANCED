@@ -35,7 +35,7 @@ import 'package:provider/provider.dart';
  *    }
  */
 
-void main() async{
+Future<void> main() async{
   // TODO: Firebase 초기화 코드 여기에 작성
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();

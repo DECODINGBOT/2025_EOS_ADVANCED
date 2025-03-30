@@ -1,4 +1,3 @@
-import 'package:eos_advance_login/theme/foundation/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -14,8 +13,17 @@ class AuthService extends ChangeNotifier {
     required Function(String err) onError, // 에러 발생시 호출되는 함수
   }) async {
     // 회원가입
-
-
+    try{
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email,
+        password: password
+      );
+      onSuccess(){
+        print("가입 성공");
+      };
+    } catch (e) {
+      onError(e.toString());
+    }
   }
 
   void signIn({
